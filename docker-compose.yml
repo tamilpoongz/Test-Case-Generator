@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: test-case-generator-backend
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_PROVIDER: openai
+      LLM_MODEL: gpt-4
+      LLM_API_KEY: ${LLM_API_KEY}
+      DATABASE_URL: sqlite:///./test_cases.db
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/testcases/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  default:
+    name: test-case-generator-network

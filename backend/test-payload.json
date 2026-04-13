@@ -1,0 +1,5 @@
+﻿{
+  "title": "User Login Feature",
+  "description": "Users should be able to login securely",
+  "acceptanceCriteria": ["Supports email login", "Supports password reset", "Shows error on wrong credentials"]
+}

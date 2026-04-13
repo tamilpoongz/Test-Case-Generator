@@ -1,0 +1,9 @@
+{
+  "title": "User Login Feature",
+  "description": "As a user, I should be able to log in with my credentials",
+  "acceptanceCriteria": [
+    "User can enter username",
+    "User can enter password", 
+    "System validates and logs in user"
+  ]
+}

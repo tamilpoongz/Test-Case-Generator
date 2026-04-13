@@ -1,0 +1,569 @@
+{
+  "info": {
+    "_postman_id": "test-case-generator-api",
+    "name": "Test Case Generator API",
+    "description": "API Collection for Test Case Generation Agent\n\n**Backend URL**: http://localhost:8000\n\n**Setup Instructions**:\n1. Import this collection in Postman\n2. Create a new Environment or use the variables defined below\n3. Update {{base_url}} if your backend is on a different address\n4. Test each endpoint in order",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has status field', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('status');",
+              "});",
+              "",
+              "pm.test('Status is ok', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.equal('ok');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/testcases/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "health"
+          ]
+        },
+        "description": "Verify that the backend server is running and healthy.\n\n**Expected Response:**\n```json\n{\n  \"status\": \"ok\"\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "2. Generate Test Cases - Valid Request",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has test_cases array', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('test_cases');",
+              "    pm.expect(jsonData.test_cases).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Response has summary object', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('summary');",
+              "});",
+              "",
+              "pm.test('Each test case has required fields', function () {",
+              "    var jsonData = pm.response.json();",
+              "    jsonData.test_cases.forEach(function(tc) {",
+              "        pm.expect(tc).to.have.property('test_id');",
+              "        pm.expect(tc).to.have.property('title');",
+              "        pm.expect(tc).to.have.property('type');",
+              "        pm.expect(tc).to.have.property('priority');",
+              "        pm.expect(tc).to.have.property('confidence_score');",
+              "    });",
+              "});",
+              "",
+              "pm.test('Summary has statistics', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.summary).to.have.property('total_test_cases');",
+              "    pm.expect(jsonData.summary).to.have.property('by_type');",
+              "    pm.expect(jsonData.summary).to.have.property('by_priority');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"User Registration with Email Validation\",\n  \"description\": \"As a new user, I want to register for an account using my email address so that I can access the platform securely. The system should validate the email format and check for duplicate accounts.\",\n  \"acceptance_criteria\": [\n    \"User can enter valid email and password\",\n    \"System validates email format\",\n    \"System prevents duplicate email registration\",\n    \"Success message displays on successful registration\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Generate test cases from a user story.\n\n**Request Body:**\n- `title` (string, 10-200 chars): Feature title\n- `description` (string, 20-2000 chars): Feature description\n- `acceptance_criteria` (array of strings, 1-10 items): Acceptance criteria\n\n**Expected Response:**\n- `test_cases`: Array of generated test cases\n- `summary`: Statistics about generated test cases"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Generate Test Cases - Complex Feature",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Has multiple test cases', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.test_cases.length).to.be.greaterThan(3);",
+              "});",
+              "",
+              "pm.test('Test cases have different priorities', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var priorities = jsonData.test_cases.map(tc => tc.priority);",
+              "    var hasMultiplePriorities = new Set(priorities).size > 1;",
+              "    pm.expect(hasMultiplePriorities).to.equal(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Payment Processing with Multiple Payment Methods\",\n  \"description\": \"As an e-commerce customer, I want to pay for my order using multiple payment methods (credit card, debit card, digital wallet, bank transfer) so that I have flexibility in how I complete my purchase. The system should support recurring payments and handle transactions securely with 3D Secure authentication for credit cards.\",\n  \"acceptance_criteria\": [\n    \"Support credit card payments with 3D Secure verification\",\n    \"Support debit card payments\",\n    \"Support digital wallet (Apple Pay, Google Pay) integration\",\n    \"Support bank transfer with reference number\",\n    \"Display payment success/failure message appropriately\",\n    \"Handle payment timeout scenarios\",\n    \"Save payment method for future transactions (with user consent)\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Generate test cases for a more complex feature with multiple acceptance criteria."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Generate Test Cases - Minimal Valid Request",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has test_cases', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.test_cases).to.be.an('array');",
+              "    pm.expect(jsonData.test_cases.length).to.be.greaterThan(0);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Search Products\",\n  \"description\": \"Customer can search for products by keyword or category and filter results\",\n  \"acceptance_criteria\": [\n    \"Search returns matching products\",\n    \"Filter by category works correctly\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Test with minimal but valid input to verify basic functionality."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Download as CSV",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response is CSV file', function () {",
+              "    var contentType = pm.response.headers.get('content-type');",
+              "    pm.expect(contentType).to.include('text/csv');",
+              "});",
+              "",
+              "pm.test('Response contains test case data', function () {",
+              "    var responseText = pm.response.text();",
+              "    pm.expect(responseText).to.include('test_id');",
+              "    pm.expect(responseText).to.include('title');",
+              "    pm.expect(responseText).to.include('type');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"format\": \"csv\",\n  \"test_cases\": [\n    {\n      \"test_case_id\": \"TC001\",\n      \"test_case_title\": \"Valid login with correct credentials\",\n      \"test_type\": \"Functional\",\n      \"priority\": \"High\",\n      \"preconditions\": [\"User account exists\", \"User is on login page\"],\n      \"test_steps\": [\"Navigate to login page\", \"Enter email\", \"Enter password\", \"Click login\"],\n      \"test_data\": [\"email: user@example.com\", \"password: ValidPass123\"],\n      \"expected_result\": \"User is logged in and redirected to dashboard\",\n      \"confidence_score\": 0.95,\n      \"review_status\": \"Approved\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "download"
+          ]
+        },
+        "description": "Export test cases as CSV file.\n\n**Request Body:**\n- `test_cases`: Array of test case objects to export\n- `format`: Export format ('csv' or 'json')"
+      },
+      "response": []
+    },
+    {
+      "name": "6. Download as JSON",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response is JSON file', function () {",
+              "    var contentType = pm.response.headers.get('content-type');",
+              "    pm.expect(contentType).to.include('application/json');",
+              "});",
+              "",
+              "pm.test('Response is valid JSON', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"test_cases\": [\n    {\n      \"test_id\": \"TC001\",\n      \"title\": \"Valid login with correct credentials\",\n      \"type\": \"Functional\",\n      \"priority\": \"High\",\n      \"preconditions\": \"User account exists\",\n      \"steps\": \"1. Navigate to login page\\n2. Enter email\\n3. Enter password\\n4. Click login\",\n      \"test_data\": \"email: user@example.com, password: ValidPass123\",\n      \"expected_result\": \"User is logged in and redirected to dashboard\",\n      \"confidence_score\": 0.95,\n      \"review_status\": \"Approved\"\n    }\n  ],\n  \"format\": \"json\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "download"
+          ]
+        },
+        "description": "Export test cases as JSON file."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Error - Missing Title",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 (Validation Error)', function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test('Response has detail field', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('detail');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"User can login to the system\",\n  \"acceptance_criteria\": [\"Valid credentials accepted\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Test error handling - missing required field 'title'.\n\n**Expected Response:** 422 Validation Error"
+      },
+      "response": []
+    },
+    {
+      "name": "8. Error - Title Too Short",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 (Validation Error)', function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test('Error mentions title length', function () {",
+              "    var responseText = pm.response.text();",
+              "    pm.expect(responseText.toLowerCase()).to.include('title');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Log\",\n  \"description\": \"User can login to the system with valid credentials\",\n  \"acceptance_criteria\": [\"Valid credentials accepted\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Test error handling - title is too short (less than 10 characters).\n\n**Expected Response:** 422 Validation Error with message about title length"
+      },
+      "response": []
+    },
+    {
+      "name": "9. Error - Description Too Short",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 (Validation Error)', function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test('Error mentions description', function () {",
+              "    var responseText = pm.response.text();",
+              "    pm.expect(responseText.toLowerCase()).to.include('description');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"User Login Feature\",\n  \"description\": \"Short desc\",\n  \"acceptance_criteria\": [\"Valid credentials accepted\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Test error handling - description is too short (less than 20 characters).\n\n**Expected Response:** 422 Validation Error"
+      },
+      "response": []
+    },
+    {
+      "name": "10. Error - Empty Acceptance Criteria",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 (Validation Error)', function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test('Error mentions acceptance criteria', function () {",
+              "    var responseText = pm.response.text();",
+              "    pm.expect(responseText.toLowerCase()).to.include('acceptance');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"User Login Feature\",\n  \"description\": \"User can login to the system with valid credentials and see dashboard\",\n  \"acceptance_criteria\": []\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "generate"
+          ]
+        },
+        "description": "Test error handling - acceptance criteria is empty array.\n\n**Expected Response:** 422 Validation Error"
+      },
+      "response": []
+    },
+    {
+      "name": "11. Error - Invalid Format in Download",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 or 400', function () {",
+              "    pm.expect([400, 422]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"format\": \"json\",\n  \"test_cases\": [\n    {\n      \"test_case_id\": \"TC001\",\n      \"test_case_title\": \"Valid login with correct credentials\",\n      \"test_type\": \"Positive\",\n      \"priority\": \"High\",\n      \"preconditions\": [\"User account exists\", \"User is on login page\"],\n      \"test_steps\": [\"Navigate to login page\", \"Enter email\", \"Enter password\", \"Click login\"],\n      \"test_data\": [\"email: user@example.com\", \"password: ValidPass123\"],\n      \"expected_result\": \"User is logged in and redirected to dashboard\",\n      \"confidence_score\": 0.95,\n      \"review_status\": \"Approved\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/testcases/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "testcases",
+            "download"
+          ]
+        },
+        "description": "Test error handling - invalid export format 'xml' (should be 'csv' or 'json').\n\n**Expected Response:** 422 or 400 Validation Error"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the backend. Change this if your backend is running on a different address/port."
+    }
+  ]
+}

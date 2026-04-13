@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple API Test - Direct Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        h2 { color: #666; font-size: 1.1em; border-bottom: 2px solid #6366f1; padding-bottom: 10px; }
+        button {
+            background: #6366f1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px 5px 10px 0;
+        }
+        button:hover { background: #4f46e5; }
+        .output {
+            background: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #6366f1;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { border-left-color: #10b981; background: #f0fdf4; }
+        .error { border-left-color: #ef4444; background: #fef2f2; }
+        .info { border-left-color: #3b82f6; background: #eff6ff; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔍 Direct API Connectivity Test</h1>
+        <p>This page tests direct API connectivity without React or complex frameworks.</p>
+    </div>
+
+    <div class="box">
+        <h2>1. Quick Status Check</h2>
+        <button onclick="quickTest()">Quick Test All</button>
+        <div id="quickStatus" class="output info">Click "Quick Test All" to run diagnostics...</div>
+    </div>
+
+    <div class="box">
+        <h2>2. Health Check</h2>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="healthOutput" class="output"></div>
+    </div>
+
+    <div class="box">
+        <h2>3. Generate Test Cases</h2>
+        <button onclick="testGenerate()">Generate Test Cases</button>
+        <div id="generateOutput" class="output"></div>
+    </div>
+
+    <div class="box">
+        <h2>4. Inspect Response</h2>
+        <div id="responseInspect" class="output info">Response details will appear here...</div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001/api/testcases';
+        let lastResponse = null;
+
+        function log(elementId, message, isError = false) {
+            const elem = document.getElementById(elementId);
+            const className = isError ? 'error' : (message.includes('✅') ? 'success' : 'info');
+            elem.textContent = message;
+            elem.className = `output ${className}`;
+            console.log(message);
+        }
+
+        async function quickTest() {
+            log('quickStatus', '⏳ Running diagnostics...\n');
+            
+            try {
+                // Check URL
+                let msg = `API URL: ${API_URL}\n\n`;
+                
+                // Check if server responds
+                msg += '⏳ Checking if backend at ${API_URL}/health...\n';
+                const healthResp = await fetch(`${API_URL}/health`);
+                msg += `✅ Backend responded: ${healthResp.status}\n\n`;
+                
+                // Try generation
+                msg += '⏳ Testing test case generation...\n';
+                const genResp = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: 'Test',
+                        description: 'Test Description',
+                        acceptanceCriteria: ['Test Criteria']
+                    })
+                });
+                
+                const data = await genResp.json();
+                const count = data?.draftTestCases?.length || 0;
+                
+                msg += `✅ Generation endpoint responded: ${genResp.status}\n`;
+                msg += `✅ Test Cases Generated: ${count}\n\n`;
+                
+                if (count > 0) {
+                    msg += `✅ SUCCESS: System is working! Found ${count} test cases.\n`;
+                    log('quickStatus', msg);
+                } else {
+                    msg += `❌ PROBLEM: Generated 0 test cases!\n`;
+                    msg += `Response: ${JSON.stringify(data, null, 2)}\n`;
+                    log('quickStatus', msg, true);
+                }
+            } catch (err) {
+                log('quickStatus', `❌ ERROR: ${err.message}\n\nMake sure:\n1. Backend is running on port 3001\n2. No CORS issues\n3. Network is available`, true);
+            }
+        }
+
+        async function testHealth() {
+            log('healthOutput', '⏳ Testing health...');
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                log('healthOutput', `✅ SUCCESS (${response.status})\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (err) {
+                log('healthOutput', `❌ ERROR: ${err.message}`, true);
+            }
+        }
+
+        async function testGenerate() {
+            log('generateOutput', '⏳ Generating test cases...');
+            try {
+                const payload = {
+                    title: "Guest User Checkout and Order Placement",
+                    description: "As a guest user, I want to proceed with checkout...",
+                    acceptanceCriteria: [
+                        "Given a guest user has items in the cart",
+                        "When the user proceeds to checkout without logging in",
+                        "Then the system must allow guest checkout"
+                    ]
+                };
+
+                console.log('Sending payload:', payload);
+
+                const response = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                lastResponse = data;
+
+                const count = data?.draftTestCases?.length || 0;
+                let output = `✅ RESPONSE (${response.status})\n`;
+                output += `Test Cases Generated: ${count}\n`;
+                output += `Status: ${data.status}\n\n`;
+                output += `Summary:\n${JSON.stringify(data.summary, null, 2)}\n\n`;
+                
+                if (count > 0) {
+                    output += `✅ First Test Case:\n${JSON.stringify(data.draftTestCases[0], null, 2)}`;
+                } else {
+                    output += `❌ WARNING: 0 test cases returned!\n${JSON.stringify(data, null, 2)}`;
+                }
+
+                log('generateOutput', output, count === 0);
+                
+                // Update inspector
+                log('responseInspect', `Response has ${count} test cases\n\nFull Response:\n${JSON.stringify(data, null, 2)}`);
+            } catch (err) {
+                log('generateOutput', `❌ ERROR: ${err.message}\n${err.stack}`, true);
+            }
+        }
+
+        // Auto-run quick test on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Ready for testing.');
+            setTimeout(() => {
+                console.log('Suggestion: Click "Quick Test All" to diagnose the system');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

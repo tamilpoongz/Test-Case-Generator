@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Debugging - API Connection Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #ffff00; border-bottom: 2px solid #00ff00; padding-bottom: 10px; }
+        h2 { color: #00ffff; margin-top: 30px; }
+        .test-box {
+            background: #222;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #00ff00;
+            border-radius: 3px;
+        }
+        .test-box.error {
+            border-left-color: #ff0000;
+            color: #ffaaaa;
+        }
+        .test-box.success {
+            border-left-color: #00ff00;
+            color: #00ff00;
+        }
+        .test-box.info {
+            border-left-color: #00ffff;
+            color: #00ffff;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        button:hover { background: #00cc00; }
+        .response-area {
+            background: #0a0a0a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 3px;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #00ff00;
+        }
+        pre { margin: 0; font-size: 12px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Frontend Debugging - API Connection Test</h1>
+        
+        <h2>1️⃣ Connection & Environment</h2>
+        <div id="env" class="test-box">Loading...</div>
+        
+        <h2>2️⃣ Health Check</h2>
+        <button onclick="testHealth()">🏥 Test Health Endpoint</button>
+        <div id="health" class="test-box">Click button to test...</div>
+        
+        <h2>3️⃣ Test Case Generation</h2>
+        <button onclick="testGeneration()">🧪 Generate Test Cases</button>
+        <div id="generation" class="test-box">Click button to test...</div>
+        
+        <h2>4️⃣ Response Data Inspector</h2>
+        <div id="responseData" class="test-box info">Waiting for response...</div>
+        
+        <h2>5️⃣ Network Log</h2>
+        <div id="networkLog" class="response-area">
+            <pre>Network events will appear here...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const logs = [];
+        
+        function addLog(type, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.push({ timestamp, type, message, data });
+            
+            let logHtml = `[${timestamp}] ${type}: ${message}`;
+            if (data) {
+                logHtml += `<br><pre style="margin-left: 20px; color: #888;">${JSON.stringify(data, null, 2).substring(0, 500)}</pre>`;
+            }
+            
+            document.getElementById('networkLog').innerHTML += logHtml + '<br><br>';
+            document.getElementById('networkLog').scrollTop = document.getElementById('networkLog').scrollHeight;
+        }
+        
+        function setStatus(elementId, status, message, data = null) {
+            const element = document.getElementById(elementId);
+            const className = status === 'success' ? 'success' : status === 'error' ? 'error' : 'info';
+            
+            let html = `<strong>${message}</strong>`;
+            if (data) {
+                html += `<pre>\n${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            element.innerHTML = html;
+            element.className = `test-box ${className}`;
+            addLog(status.toUpperCase(), message, data);
+        }
+        
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            const envInfo = {
+                location: window.location.href,
+                apiBase: API_BASE,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent.substring(0, 50)
+            };
+            
+            setStatus('env', 'info', '✅ Environment Loaded', envInfo);
+            addLog('INFO', 'Page loaded, ready to test');
+        });
+        
+        // Test Health
+        async function testHealth() {
+            try {
+                setStatus('health', 'info', '⏳ Testing health endpoint...');
+                addLog('REQUEST', 'GET /api/testcases/health', null);
+                
+                const response = await fetch(`${API_BASE}/api/testcases/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    setStatus('health', 'success', '✅ Health Check Passed', data);
+                } else {
+                    setStatus('health', 'error', `❌ Health Check Failed (${response.status})`, data);
+                }
+            } catch (error) {
+                setStatus('health', 'error', `❌ Error: ${error.message}`, { stack: error.stack });
+            }
+        }
+        
+        // Test Generation
+        async function testGeneration() {
+            try {
+                setStatus('generation', 'info', '⏳ Generating test cases...');
+                
+                const payload = {
+                    title: "Guest User Checkout and Order Placement",
+                    description: "As a guest user, I want to proceed with checkout and place an order without logging in, so that I can complete my purchase by entering valid delivery details, selecting available shipping and payment options, and receiving order confirmation when all required validations are passed.",
+                    acceptanceCriteria: [
+                        "Given a guest user has one or more items in the cart,",
+                        "When the user proceeds to checkout without logging in,",
+                        "Then the system must allow the user to continue checkout as a guest."
+                    ]
+                };
+                
+                addLog('REQUEST', 'POST /api/testcases/generate', payload);
+                
+                const response = await fetch(`${API_BASE}/api/testcases/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                addLog('RESPONSE', `Status ${response.status}`, data);
+                
+                if (response.ok) {
+                    const testCaseCount = data.draftTestCases?.length || 0;
+                    
+                    if (testCaseCount > 0) {
+                        setStatus('generation', 'success', 
+                            `✅ Success! Generated ${testCaseCount} test cases`, 
+                            {
+                                totalTestCases: data.summary?.totalTestCases,
+                                averageConfidence: data.summary?.averageConfidence,
+                                testCaseCount: testCaseCount,
+                                firstTestCase: data.draftTestCases[0]
+                            }
+                        );
+                        setStatus('responseData', 'success', '✅ Full Response Data', data);
+                    } else {
+                        setStatus('generation', 'error', 
+                            '❌ ERROR: 0 test cases returned!', 
+                            { status: data.status, summary: data.summary }
+                        );
+                    }
+                } else {
+                    setStatus('generation', 'error', `❌ Failed (${response.status})`, data);
+                }
+            } catch (error) {
+                setStatus('generation', 'error', `❌ Error: ${error.message}`, { stack: error.stack });
+                addLog('ERROR', 'Exception thrown', { error: error.message });
+            }
+        }
+    </script>
+</body>
+</html>
