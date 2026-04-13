@@ -10,20 +10,25 @@ import {
 } from '@mui/material';
 import { CloudUpload, InsertDriveFile, Close } from '@mui/icons-material';
 
-const UploadStories = ({ onUpload, isLoading }) => {
-  const inputRef = useRef(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileError, setFileError] = useState(null);
+interface UploadStoriesProps {
+  onUpload: (file: File) => void;
+  isLoading: boolean;
+}
 
-  const validateFile = (file) => {
+const UploadStories: React.FC<UploadStoriesProps> = ({ onUpload, isLoading }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const validateFile = (file: File): string | null => {
     if (!file) return 'No file selected.';
     if (!/\.(csv|xlsx|xls)$/i.test(file.name)) return 'Only CSV and Excel (.xlsx, .xls) files are supported.';
     if (file.size > 5 * 1024 * 1024) return 'File must be smaller than 5 MB.';
     return null;
   };
 
-  const handleFileSelect = (file) => {
+  const handleFileSelect = (file: File) => {
     const err = validateFile(file);
     if (err) {
       setFileError(err);
@@ -34,17 +39,17 @@ const UploadStories = ({ onUpload, isLoading }) => {
     setSelectedFile(file);
   };
 
-  const handleInputChange = (e) => {
-    handleFileSelect(e.target.files[0]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
-    handleFileSelect(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.[0]) handleFileSelect(e.dataTransfer.files[0]);
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(true);
   };
@@ -175,7 +180,7 @@ const UploadStories = ({ onUpload, isLoading }) => {
           <>
             <CloudUpload sx={{ fontSize: 48, color: '#94a3b8', mb: 1 }} />
             <Typography variant="body1" sx={{ fontWeight: 600, color: '#374151' }}>
-              Drag & drop your CSV or Excel file here
+              Drag &amp; drop your CSV or Excel file here
             </Typography>
             <Typography variant="body2" sx={{ color: '#9ca3af', mt: 0.5 }}>
               or click to browse — CSV, XLSX, XLS — max 5 MB
@@ -197,7 +202,7 @@ const UploadStories = ({ onUpload, isLoading }) => {
           variant="contained"
           disabled={!selectedFile || isLoading}
           onClick={handleUpload}
-          startIcon={isLoading ? null : <CloudUpload />}
+          startIcon={isLoading ? undefined : <CloudUpload />}
           sx={{
             minWidth: 220,
             py: 1.5,

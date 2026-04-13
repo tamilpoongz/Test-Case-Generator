@@ -1,40 +1,55 @@
 import React from 'react';
-import { Box, Card, CardContent, Grid, Typography, Paper } from '@mui/material';
-import { BarChart, CheckCircle, TrendingUp, Warning, Flag } from '@mui/icons-material';
+import { Card, CardContent, Grid, Typography, Paper } from '@mui/material';
+import { BarChart, CheckCircle, TrendingUp, Warning, Flag, SvgIconComponent } from '@mui/icons-material';
 
-export const TestCaseSummary = ({ summary }) => {
-  if (!summary) {
-    return null;
-  }
+interface Summary {
+  totalTestCases: number;
+  byType: Record<string, number>;
+  averageConfidence: number;
+}
 
-  const stats = [
+interface TestCaseSummaryProps {
+  summary: Summary | null;
+}
+
+interface StatItem {
+  label: string;
+  value: number;
+  color: string;
+  icon: SvgIconComponent;
+}
+
+export const TestCaseSummary: React.FC<TestCaseSummaryProps> = ({ summary }) => {
+  if (!summary) return null;
+
+  const stats: StatItem[] = [
     {
       label: 'Total Test Cases',
-      value: summary.total_test_cases || 0,
+      value: summary.totalTestCases || 0,
       color: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
       icon: BarChart,
     },
     {
       label: 'Functional',
-      value: summary.by_type?.Functional || 0,
+      value: summary.byType?.Functional || 0,
       color: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
       icon: CheckCircle,
     },
     {
       label: 'Positive',
-      value: summary.by_type?.Positive || 0,
+      value: summary.byType?.Positive || 0,
       color: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
       icon: TrendingUp,
     },
     {
       label: 'Negative',
-      value: summary.by_type?.Negative || 0,
+      value: summary.byType?.Negative || 0,
       color: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
       icon: Warning,
     },
     {
       label: 'Boundary',
-      value: summary.by_type?.['Boundary Validation'] || 0,
+      value: summary.byType?.['Boundary Validation'] || 0,
       color: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
       icon: Flag,
     },
@@ -44,7 +59,7 @@ export const TestCaseSummary = ({ summary }) => {
     <Card
       sx={{
         mb: 3,
-        background: 'Linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
         borderRadius: '16px',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
       }}
@@ -100,14 +115,6 @@ export const TestCaseSummary = ({ summary }) => {
             );
           })}
         </Grid>
-        {summary.generation_timestamp && (
-          <Typography
-            variant="caption"
-            sx={{ mt: 2.5, display: 'block', color: '#666', fontSize: '0.9rem' }}
-          >
-            ⏰ Generated: {new Date(summary.generation_timestamp).toLocaleString()}
-          </Typography>
-        )}
       </CardContent>
     </Card>
   );

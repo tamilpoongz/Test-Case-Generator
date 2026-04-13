@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
 
-export const AppHeader = () => {
+export const AppHeader: React.FC = () => {
   return (
     <Box
       sx={{
@@ -37,7 +37,16 @@ export const AppHeader = () => {
     >
       <Container sx={{ position: 'relative', zIndex: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <AutoAwesome sx={{ fontSize: 40, animation: 'spin 3s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
+          <AutoAwesome
+            sx={{
+              fontSize: 40,
+              animation: 'spin 3s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+            }}
+          />
           <Typography variant="h4" component="h1" sx={{ fontWeight: 800, letterSpacing: '-1px' }}>
             Test Case Generation Agent
           </Typography>

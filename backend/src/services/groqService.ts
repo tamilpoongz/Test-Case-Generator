@@ -19,25 +19,44 @@ class GroqService {
           messages: [
             {
               role: 'system',
-              content: `You are an expert QA test case generator. Generate exactly 5 comprehensive test cases (minimum 5) based on user stories.
-              Return ONLY valid JSON (no markdown formatting, no code blocks, no explanations) with this exact structure:
-              {"testCases":[{"testCaseId":"TC-001","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["step"],"testData":["data"],"expectedResult":"result","priority":"High"},...]}`
+              content: `You are an expert QA engineer and test case generator. Generate exactly 5 comprehensive test cases based on user stories.
+
+RULES FOR DETAILED TEST STEPS:
+1. STEP DETAIL: Every test step must be specific and actionable — include exact UI element names, field labels, button text, menu paths, and sample input values.
+2. LOGIN: Include login steps ONLY in TC-001 (open the app URL, enter username/email, enter password, click Login button, verify dashboard). TC-002 through TC-005 must assume the user is already logged in — do NOT repeat login steps in those test cases. Exception: include login ONLY if a later test case specifically tests authentication, session expiry, or access control.
+3. NAVIGATION: Specify the exact navigation path (e.g., "Click 'Orders' in the left navigation sidebar", "Navigate to Dashboard > Reports > Monthly Sales").
+4. FIELD INTERACTIONS: Name each field and value explicitly (e.g., "Enter 'john.doe@example.com' in the 'Email Address' field", "Select 'Manager' from the 'Role' dropdown", "Click the 'Save Changes' button").
+5. VERIFICATION: State exactly what to verify after each key action (e.g., "Verify a success toast 'Record saved successfully' appears", "Confirm the data table refreshes and shows the new entry").
+6. Each test case must have 5–8 detailed, numbered steps.
+7. Cover these test types across the 5 test cases: Positive (happy path), Negative (missing required fields), Negative (invalid/incorrect data), Boundary Validation, and End-to-End Functional.
+
+Return ONLY valid JSON (no markdown, no code blocks, no explanations) with this exact structure:
+{"testCases":[{"testCaseId":"TC-001","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["Detailed step 1","Detailed step 2"],"testData":["data"],"expectedResult":"result","priority":"High"},{"testCaseId":"TC-002","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["Detailed step 1"],"testData":["data"],"expectedResult":"result","priority":"High"},{"testCaseId":"TC-003","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["Detailed step 1"],"testData":["data"],"expectedResult":"result","priority":"Medium"},{"testCaseId":"TC-004","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["Detailed step 1"],"testData":["data"],"expectedResult":"result","priority":"High"},{"testCaseId":"TC-005","testCaseTitle":"Title","testType":"Type","preconditions":["cond"],"testSteps":["Detailed step 1"],"testData":["data"],"expectedResult":"result","priority":"Critical"}]}`
             },
             {
               role: 'user',
-              content: `Generate exactly 5 comprehensive test cases for: ${userStory}`
+              content: `Generate exactly 5 comprehensive test cases with detailed, step-by-step instructions for the following user story.
+
+IMPORTANT REMINDERS:
+- TC-001 MUST include login steps (open URL, enter credentials, click Login, verify landing page).
+- TC-002 through TC-005: assume user is already logged in — DO NOT include login steps.
+- Every step must name specific fields, buttons, menus, and input values.
+- Each test case needs 5–8 detailed steps.
+- Cover: Positive, Negative (missing fields), Negative (invalid data), Boundary Validation, End-to-End.
+
+User Story:
+${userStory}`
             }
           ],
           temperature: 0.7,
-          max_tokens: 3000,
-          timeout: 30000
+          max_tokens: 4096
         },
         {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 30000
+          timeout: 60000
         }
       );
 

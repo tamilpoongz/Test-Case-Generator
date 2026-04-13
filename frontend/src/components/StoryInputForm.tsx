@@ -11,31 +11,32 @@ import {
   Alert,
 } from '@mui/material';
 import { Edit, Refresh, CheckCircle } from '@mui/icons-material';
-import { storyFormSchema } from '../schemas/storyFormSchema';
+import { storyFormSchema, StoryFormData } from '../schemas/storyFormSchema';
 
-export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
+interface StoryInputFormProps {
+  onSubmit: (title: string, description: string, acceptanceCriteria: string) => void;
+  isLoading: boolean;
+  error?: string | null;
+  onClear?: () => void;
+}
+
+export const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, error, onClear }) => {
   const {
     control,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm({
+  } = useForm<StoryFormData>({
     resolver: zodResolver(storyFormSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      acceptanceCriteria: '',
-    },
+    defaultValues: { title: '', description: '', acceptanceCriteria: '' },
   });
 
   const handleClear = () => {
     reset();
-    if (onClear) {
-      onClear();
-    }
+    if (onClear) onClear();
   };
 
-  const handleFormSubmit = handleSubmit(async (data) => {
+  const handleFormSubmit = handleSubmit((data: StoryFormData) => {
     onSubmit(data.title, data.description, data.acceptanceCriteria);
   });
 
@@ -60,7 +61,7 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
           Input Your User Story
         </Typography>
         <Typography variant="body2" sx={{ color: '#666', fontSize: '0.95rem' }}>
-          Provide the user story details and acceptance criteria for test case generation
+          Provide the user story details below. Include feature/module names, field names, and navigation paths for richer, step-by-step test cases. Login steps are auto-included only in the first test case.
         </Typography>
       </Box>
 
@@ -92,19 +93,10 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '12px',
-                      '&:hover fieldset': {
-                        borderColor: '#6366f1',
-                        borderWidth: '2px',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#6366f1',
-                        borderWidth: '2px',
-                      },
+                      '&:hover fieldset': { borderColor: '#6366f1', borderWidth: '2px' },
+                      '&.Mui-focused fieldset': { borderColor: '#6366f1', borderWidth: '2px' },
                     },
-                    '& .MuiInputBase-input': {
-                      fontSize: '1rem',
-                      fontWeight: 500,
-                    },
+                    '& .MuiInputBase-input': { fontSize: '1rem', fontWeight: 500 },
                   }}
                 />
               </Box>
@@ -120,7 +112,7 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
                 <TextField
                   {...field}
                   label="Description"
-                  placeholder="Describe what the user wants to achieve and why"
+                  placeholder="Describe what the user wants to achieve. Mention the feature module, key fields, buttons, and navigation paths to generate detailed step-by-step test cases (e.g., User clicks on 'New Order' in the Orders module, fills in Customer Name, Product, and Quantity fields, then clicks 'Place Order')."
                   fullWidth
                   multiline
                   rows={4}
@@ -131,18 +123,10 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '12px',
-                      '&:hover fieldset': {
-                        borderColor: '#8b5cf6',
-                        borderWidth: '2px',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#8b5cf6',
-                        borderWidth: '2px',
-                      },
+                      '&:hover fieldset': { borderColor: '#8b5cf6', borderWidth: '2px' },
+                      '&.Mui-focused fieldset': { borderColor: '#8b5cf6', borderWidth: '2px' },
                     },
-                    '& .MuiInputBase-input': {
-                      fontSize: '1rem',
-                    },
+                    '& .MuiInputBase-input': { fontSize: '1rem' },
                   }}
                 />
               </Box>
@@ -158,7 +142,7 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
                 <TextField
                   {...field}
                   label="Acceptance Criteria"
-                  placeholder={`Enter each criterion on a new line:\n1. Email must be valid format\n2. Password minimum 8 characters\n3. System should send confirmation email`}
+                  placeholder={`Enter each criterion on a new line — be specific about fields, validations, and outcomes:\n1. 'Email Address' field must accept valid email format only\n2. 'Password' field must be minimum 8 characters with at least one number\n3. Clicking 'Register' button should show a success banner and send a confirmation email`}
                   fullWidth
                   multiline
                   rows={4}
@@ -169,18 +153,10 @@ export const StoryInputForm = ({ onSubmit, isLoading, error, onClear }) => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '12px',
-                      '&:hover fieldset': {
-                        borderColor: '#ec4899',
-                        borderWidth: '2px',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#ec4899',
-                        borderWidth: '2px',
-                      },
+                      '&:hover fieldset': { borderColor: '#ec4899', borderWidth: '2px' },
+                      '&.Mui-focused fieldset': { borderColor: '#ec4899', borderWidth: '2px' },
                     },
-                    '& .MuiInputBase-input': {
-                      fontSize: '1rem',
-                    },
+                    '& .MuiInputBase-input': { fontSize: '1rem' },
                   }}
                 />
               </Box>

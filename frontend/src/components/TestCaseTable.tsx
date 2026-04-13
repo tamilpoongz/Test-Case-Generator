@@ -19,49 +19,50 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { TestCase } from '../types/index';
 import { formatConfidenceScore, getConfidenceColor } from '../utils/helpers';
 
-const TestCaseRow = ({ testCase }) => {
+interface TestCaseRowProps {
+  testCase: TestCase;
+}
+
+const TestCaseRow: React.FC<TestCaseRowProps> = ({ testCase }) => {
   const [open, setOpen] = useState(false);
 
-  const getPriorityColor = (priority) => {
-    const colors = {
-      'Low': 'default',
-      'Medium': 'warning',
-      'High': 'error',
-      'Critical': 'error',
+  const getPriorityColor = (priority: string): 'default' | 'warning' | 'error' => {
+    const colors: Record<string, 'default' | 'warning' | 'error'> = {
+      Low: 'default',
+      Medium: 'warning',
+      High: 'error',
+      Critical: 'error',
     };
-    return colors[priority] || 'default';
+    return colors[priority] ?? 'default';
   };
 
-  const getTypeColor = (type) => {
-    const colors = {
-      'Functional': 'primary',
-      'Positive': 'success',
-      'Negative': 'error',
+  const getTypeColor = (type: string): 'primary' | 'success' | 'error' | 'warning' | 'default' => {
+    const colors: Record<string, 'primary' | 'success' | 'error' | 'warning' | 'default'> = {
+      Functional: 'primary',
+      Positive: 'success',
+      Negative: 'error',
       'Boundary Validation': 'warning',
     };
-    return colors[type] || 'default';
+    return colors[type] ?? 'default';
   };
 
   return (
     <>
       <TableRow sx={{ '&:hover': { bgcolor: '#f5f5f5' } }}>
         <TableCell>
-          <IconButton
-            aria-label="expand row"
-            size="small"
-            onClick={() => setOpen(!open)}
-          >
+          <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell sx={{ fontWeight: 'bold' }}>{testCase.test_case_id}</TableCell>
+        <TableCell sx={{ fontWeight: 'bold' }}>{testCase.testCaseId}</TableCell>
         <TableCell sx={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {testCase.test_case_title}
+          {testCase.testCaseTitle}
         </TableCell>
         <TableCell>
-          <Chip label={testCase.test_type} color={getTypeColor(testCase.test_type)} size="small" />
+          <Chip label={testCase.testType} color={getTypeColor(testCase.testType)} size="small" />
         </TableCell>
         <TableCell>
           <Chip label={testCase.priority} color={getPriorityColor(testCase.priority)} size="small" />
@@ -69,7 +70,7 @@ const TestCaseRow = ({ testCase }) => {
         <TableCell>
           <Box
             sx={{
-              bgcolor: getConfidenceColor(testCase.confidence_score),
+              bgcolor: getConfidenceColor(testCase.confidenceScore),
               color: 'white',
               py: 0.5,
               px: 1,
@@ -79,36 +80,17 @@ const TestCaseRow = ({ testCase }) => {
               width: 'fit-content',
             }}
           >
-            {formatConfidenceScore(testCase.confidence_score)}
+            {formatConfidenceScore(testCase.confidenceScore)}
           </Box>
-        </TableCell>
-        <TableCell>
-          <Chip 
-            label={testCase.review_status} 
-            color={testCase.review_status === 'Approved' ? 'success' : 'warning'}
-            size="small" 
-            variant="outlined"
-          />
         </TableCell>
       </TableRow>
 
-      {/* Expanded row with details */}
+      {/* Expanded row */}
       <TableRow>
-        <TableCell colSpan={7} sx={{ py: 0 }}>
+        <TableCell colSpan={6} sx={{ py: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ p: 2, bgcolor: '#f9f9f9' }}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Details
-              </Typography>
-
-              {testCase.description && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
-                    Description:
-                  </Typography>
-                  <Typography variant="body2">{testCase.description}</Typography>
-                </Box>
-              )}
+              <Typography variant="h6" sx={{ mb: 1 }}>Details</Typography>
 
               {testCase.preconditions && testCase.preconditions.length > 0 && (
                 <Box sx={{ mb: 2 }}>
@@ -125,13 +107,13 @@ const TestCaseRow = ({ testCase }) => {
                 </Box>
               )}
 
-              {testCase.test_steps && testCase.test_steps.length > 0 && (
+              {testCase.testSteps && testCase.testSteps.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
                     Test Steps:
                   </Typography>
                   <List sx={{ pl: 2 }}>
-                    {testCase.test_steps.map((step, idx) => (
+                    {testCase.testSteps.map((step, idx) => (
                       <ListItem key={idx} sx={{ py: 0.5 }}>
                         <ListItemText primary={`${idx + 1}. ${step}`} />
                       </ListItem>
@@ -140,27 +122,27 @@ const TestCaseRow = ({ testCase }) => {
                 </Box>
               )}
 
-              {testCase.test_data && Object.keys(testCase.test_data).length > 0 && (
+              {testCase.testData && testCase.testData.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
                     Test Data:
                   </Typography>
                   <Box sx={{ backgroundColor: '#f0f0f0', p: 1, borderRadius: 1 }}>
-                    {Object.entries(testCase.test_data).map(([key, value]) => (
-                      <Typography key={key} variant="body2" sx={{ py: 0.25 }}>
-                        <strong>{key}:</strong> {JSON.stringify(value)}
+                    {testCase.testData.map((item, idx) => (
+                      <Typography key={idx} variant="body2" sx={{ py: 0.25 }}>
+                        {item}
                       </Typography>
                     ))}
                   </Box>
                 </Box>
               )}
 
-              {testCase.expected_result && (
+              {testCase.expectedResult && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
                     Expected Result:
                   </Typography>
-                  <Typography variant="body2">{testCase.expected_result}</Typography>
+                  <Typography variant="body2">{testCase.expectedResult}</Typography>
                 </Box>
               )}
             </Box>
@@ -171,10 +153,12 @@ const TestCaseRow = ({ testCase }) => {
   );
 };
 
-export const TestCaseTable = ({ testCases }) => {
-  if (!testCases || testCases.length === 0) {
-    return null;
-  }
+interface TestCaseTableProps {
+  testCases: TestCase[];
+}
+
+export const TestCaseTable: React.FC<TestCaseTableProps> = ({ testCases }) => {
+  if (!testCases || testCases.length === 0) return null;
 
   return (
     <Card sx={{ mb: 3 }}>
@@ -188,12 +172,11 @@ export const TestCaseTable = ({ testCases }) => {
               <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Priority</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Confidence</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {testCases.map((testCase) => (
-              <TestCaseRow key={testCase.test_case_id} testCase={testCase} />
+              <TestCaseRow key={testCase.testCaseId} testCase={testCase} />
             ))}
           </TableBody>
         </Table>

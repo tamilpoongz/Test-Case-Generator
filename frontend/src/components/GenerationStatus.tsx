@@ -5,17 +5,11 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { styled, keyframes } from '@mui/material/styles';
 
 const pulse = keyframes`
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.8;
-  }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.05); opacity: 0.8; }
 `;
 
-const LoadingCard = styled(Card)(({ theme }) => ({
+const LoadingCard = styled(Card)(() => ({
   background: 'linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%)',
   borderRadius: '16px',
   border: '2px solid #818cf8',
@@ -23,10 +17,14 @@ const LoadingCard = styled(Card)(({ theme }) => ({
   animation: `${pulse} 2s ease-in-out infinite`,
 }));
 
-export const GenerationStatus = ({ status, message, isLoading }) => {
-  if (status === 'idle') {
-    return null;
-  }
+interface GenerationStatusProps {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  message?: string;
+  isLoading?: boolean;
+}
+
+export const GenerationStatus: React.FC<GenerationStatusProps> = ({ status, message, isLoading }) => {
+  if (status === 'idle') return null;
 
   if (status === 'loading' || isLoading) {
     return (
@@ -36,7 +34,7 @@ export const GenerationStatus = ({ status, message, isLoading }) => {
             size={40}
             sx={{
               color: '#6366f1',
-              animation: `spin 1s linear infinite`,
+              animation: 'spin 1s linear infinite',
               '@keyframes spin': {
                 '0%': { transform: 'rotate(0deg)' },
                 '100%': { transform: 'rotate(360deg)' },
@@ -78,9 +76,7 @@ export const GenerationStatus = ({ status, message, isLoading }) => {
           color: '#065f46',
           fontSize: '1rem',
           fontWeight: 600,
-          '& .MuiAlert-icon': {
-            color: '#10b981',
-          },
+          '& .MuiAlert-icon': { color: '#10b981' },
         }}
       >
         {message || 'Test cases generated successfully!'}
@@ -101,9 +97,7 @@ export const GenerationStatus = ({ status, message, isLoading }) => {
           color: '#7f1d1d',
           fontSize: '1rem',
           fontWeight: 600,
-          '& .MuiAlert-icon': {
-            color: '#ef4444',
-          },
+          '& .MuiAlert-icon': { color: '#ef4444' },
         }}
       >
         {message || 'Failed to generate test cases. Please try again.'}

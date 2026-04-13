@@ -10,12 +10,21 @@ import {
   Alert,
 } from '@mui/material';
 import GetAppIcon from '@mui/icons-material/GetApp';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ThumbUpIcon from '@mui/icons-material/ThumbUp';
-import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import { ThumbUp as ThumbUpIcon, ThumbDown as ThumbDownIcon } from '@mui/icons-material';
+import { TestCase } from '../types/index';
 
-export const ReviewActionBar = ({
+interface ReviewActionBarProps {
+  testCases: TestCase[];
+  onApprove: () => void;
+  onReject: () => void;
+  onDownloadCSV: () => void;
+  onDownloadJSON: () => void;
+  isDownloading: boolean;
+  downloadError?: string | null;
+  approvalStatus?: string | null;
+}
+
+export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({
   testCases,
   onApprove,
   onReject,
@@ -25,9 +34,7 @@ export const ReviewActionBar = ({
   downloadError,
   approvalStatus,
 }) => {
-  if (!testCases || testCases.length === 0) {
-    return null;
-  }
+  if (!testCases || testCases.length === 0) return null;
 
   return (
     <Card
@@ -53,7 +60,7 @@ export const ReviewActionBar = ({
             gap: 1,
           }}
         >
-          ✅ Review & Actions
+          ✅ Review &amp; Actions
         </Typography>
 
         {downloadError && (

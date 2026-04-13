@@ -15,51 +15,43 @@ import {
   checkHealth,
 } from '../services/testcaseService';
 import { downloadFile } from '../utils/helpers';
+import { TestCase, GenerationResponse } from '../types/index';
 
-export const TestCaseGeneratorPage = () => {
+export const TestCaseGeneratorPage: React.FC = () => {
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
 
-  // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
-
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Response state
-  const [generationResponse, setGenerationResponse] = useState(null);
-  const [testCases, setTestCases] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [summary, setSummary] = useState<GenerationResponse['summary'] | null>(null);
 
   // Download state
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Approval state
-  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
 
   // Check backend health on mount
   useEffect(() => {
-    const checkBackendHealth = async () => {
-      try {
-        const health = await checkHealth();
-        console.log('Backend health:', health);
-      } catch (err) {
-        console.error('Backend not available:', err.message);
-        setError('⚠️ Warning: Backend service is not available. Please ensure the backend is running on http://localhost:3001');
-      }
-    };
-
-    checkBackendHealth();
+    checkHealth().catch((err: Error) => {
+      console.error('Backend not available:', err.message);
+      setError('⚠️ Warning: Backend service is not available. Please ensure the backend is running on http://localhost:3001');
+    });
   }, []);
 
-  // Handle form submission
-  const handleGenerateTestCases = async (formTitle, formDescription, formAcceptanceCriteria) => {
+  // Handle form submission — fixes: wraps args into object, uses draftTestCases (camelCase)
+  const handleGenerateTestCases = async (
+    formTitle: string,
+    formDescription: string,
+    formAcceptanceCriteria: string
+  ) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -67,32 +59,31 @@ export const TestCaseGeneratorPage = () => {
       setStatusMessage('Analyzing user story and generating test cases...');
       setApprovalStatus(null);
 
-      // Save form data
-      setTitle(formTitle);
-      setDescription(formDescription);
-      setAcceptanceCriteria(formAcceptanceCriteria);
+      const criteriaArray = formAcceptanceCriteria
+        .split('\n')
+        .map((line) => line.trim().replace(/^[\d+.)\-•*]\s*/, '').trim())
+        .filter((line) => line.length > 0);
 
-      // Call API
-      const response = await generateTestCases(
-        formTitle,
-        formDescription,
-        formAcceptanceCriteria
-      );
+      const response = await generateTestCases({
+        title: formTitle,
+        description: formDescription,
+        acceptanceCriteria: criteriaArray,
+      });
 
       if (response.status === 'success') {
-        setGenerationResponse(response);
-        setTestCases(response.draft_test_cases || []);
+        setTestCases(response.draftTestCases || []);
         setSummary(response.summary);
         setStatus('success');
-        setStatusMessage(`✅ Successfully generated ${response.draft_test_cases?.length || 0} test cases!`);
+        setStatusMessage(`✅ Successfully generated ${response.draftTestCases?.length || 0} test cases!`);
       } else {
         throw new Error(response.error || 'Failed to generate test cases');
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('Error generating test cases:', err);
-      setError(err.message);
+      setError(message);
       setStatus('error');
-      setStatusMessage(`❌ Error: ${err.message}`);
+      setStatusMessage(`❌ Error: ${message}`);
       setTestCases([]);
       setSummary(null);
     } finally {
@@ -101,7 +92,7 @@ export const TestCaseGeneratorPage = () => {
   };
 
   // Handle CSV upload
-  const handleUploadCSV = async (file) => {
+  const handleUploadCSV = async (file: File) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -112,20 +103,19 @@ export const TestCaseGeneratorPage = () => {
       const response = await uploadUserStories(file);
 
       if (response.status === 'success') {
-        setGenerationResponse(response);
-        setTestCases(response.draft_test_cases || []);
+        setTestCases(response.draftTestCases || []);
         setSummary(response.summary);
         setStatus('success');
-        const warnings = response.warnings?.length ? ` (${response.warnings.length} rows skipped)` : '';
-        setStatusMessage(`✅ Successfully generated ${response.draft_test_cases?.length || 0} test cases from CSV${warnings}!`);
+        setStatusMessage(`✅ Successfully generated ${response.draftTestCases?.length || 0} test cases from CSV!`);
       } else {
-        throw new Error(response.message || 'Upload failed');
+        throw new Error('Upload failed');
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('Upload error:', err);
-      setError(err.message);
+      setError(message);
       setStatus('error');
-      setStatusMessage(`❌ Error: ${err.message}`);
+      setStatusMessage(`❌ Error: ${message}`);
       setTestCases([]);
       setSummary(null);
     } finally {
@@ -135,10 +125,6 @@ export const TestCaseGeneratorPage = () => {
 
   // Handle form clear
   const handleClearForm = () => {
-    setTitle('');
-    setDescription('');
-    setAcceptanceCriteria('');
-    setGenerationResponse(null);
     setTestCases([]);
     setSummary(null);
     setStatus('idle');
@@ -167,8 +153,9 @@ export const TestCaseGeneratorPage = () => {
       const blob = await downloadTestCasesAsCSV(testCases);
       downloadFile(blob, 'generated_test_cases.csv');
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('Error downloading CSV:', err);
-      setDownloadError(err.message);
+      setDownloadError(message);
     } finally {
       setIsDownloading(false);
     }
@@ -182,8 +169,9 @@ export const TestCaseGeneratorPage = () => {
       const blob = await downloadTestCasesAsJSON(testCases);
       downloadFile(blob, 'generated_test_cases.json');
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('Error downloading JSON:', err);
-      setDownloadError(err.message);
+      setDownloadError(message);
     } finally {
       setIsDownloading(false);
     }
@@ -208,11 +196,15 @@ export const TestCaseGeneratorPage = () => {
           {/* Mode Tabs */}
           <Tabs
             value={activeTab}
-            onChange={(_, v) => setActiveTab(v)}
+            onChange={(_, v: number) => setActiveTab(v)}
             sx={{
               mb: 3,
               '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', fontSize: '0.95rem' },
-              '& .MuiTabs-indicator': { background: 'linear-gradient(135deg, #6366f1, #10b981)', height: 3, borderRadius: 2 },
+              '& .MuiTabs-indicator': {
+                background: 'linear-gradient(135deg, #6366f1, #10b981)',
+                height: 3,
+                borderRadius: 2,
+              },
             }}
           >
             <Tab label="✍️ Manual Input" />
@@ -228,72 +220,71 @@ export const TestCaseGeneratorPage = () => {
             />
           )}
           {activeTab === 1 && (
-            <UploadStories
-              onUpload={handleUploadCSV}
-              isLoading={isLoading}
-            />
+            <UploadStories onUpload={handleUploadCSV} isLoading={isLoading} />
           )}
         </Box>
 
         {/* Status / Loading State */}
-        <GenerationStatus
-          status={status}
-          message={statusMessage}
-          isLoading={isLoading}
-        />
+        <GenerationStatus status={status} message={statusMessage} isLoading={isLoading} />
 
         {/* Summary Section */}
-        <Box
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '16px',
-            p: 3,
-            mb: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-          }}
-        >
-          <TestCaseSummary summary={summary} />
-        </Box>
+        {summary && (
+          <Box
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              p: 3,
+              mb: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }}
+          >
+            <TestCaseSummary summary={summary} />
+          </Box>
+        )}
 
         {/* Test Cases Table */}
-        <Box
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '16px',
-            p: 3,
-            mb: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-          }}
-        >
-          <TestCaseTable testCases={testCases} />
-        </Box>
+        {testCases.length > 0 && (
+          <Box
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              p: 3,
+              mb: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }}
+          >
+            <TestCaseTable testCases={testCases} />
+          </Box>
+        )}
 
         {/* Review and Download Actions */}
-        <Box
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '16px',
-            p: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-          }}
-        >
-          <ReviewActionBar
-            testCases={testCases}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onDownloadCSV={handleDownloadCSV}
-            onDownloadJSON={handleDownloadJSON}
-            isDownloading={isDownloading}
-            downloadError={downloadError}
-            approvalStatus={approvalStatus}
-          />
-        </Box>
+        {testCases.length > 0 && (
+          <Box
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              p: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }}
+          >
+            <ReviewActionBar
+              testCases={testCases}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onDownloadCSV={handleDownloadCSV}
+              onDownloadJSON={handleDownloadJSON}
+              isDownloading={isDownloading}
+              downloadError={downloadError}
+              approvalStatus={approvalStatus}
+            />
+          </Box>
+        )}
       </Container>
     </Box>
   );
