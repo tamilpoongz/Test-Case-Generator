@@ -10,7 +10,9 @@ import {
   Alert,
 } from '@mui/material';
 import GetAppIcon from '@mui/icons-material/GetApp';
+import { Storage as StorageIcon } from '@mui/icons-material';
 import { ThumbUp as ThumbUpIcon, ThumbDown as ThumbDownIcon } from '@mui/icons-material';
+import LinkIcon from '@mui/icons-material/Link';
 import { TestCase } from '../types/index';
 
 interface ReviewActionBarProps {
@@ -22,6 +24,18 @@ interface ReviewActionBarProps {
   isDownloading: boolean;
   downloadError?: string | null;
   approvalStatus?: string | null;
+  // RAG ingestion props
+  selectedCount?: number;
+  onIngest?: () => void;
+  isIngesting?: boolean;
+  ingestStatus?: string | null;
+  mongoConnected?: boolean;
+  // DeepEval gate
+  evalHasFailVerdicts?: boolean;
+  // Jira upload
+  onUploadToJira?: () => void;
+  isUploadingToJira?: boolean;
+  jiraUploadEnabled?: boolean;
 }
 
 export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({
@@ -33,6 +47,15 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({
   isDownloading,
   downloadError,
   approvalStatus,
+  selectedCount = 0,
+  onIngest,
+  isIngesting = false,
+  ingestStatus,
+  mongoConnected = false,
+  evalHasFailVerdicts = false,
+  onUploadToJira,
+  isUploadingToJira = false,
+  jiraUploadEnabled = false,
 }) => {
   if (!testCases || testCases.length === 0) return null;
 
@@ -180,8 +203,77 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({
             >
               {isDownloading ? 'Downloading...' : '📋 JSON'}
             </Button>
+
+            {/* Ingest button — only shown when MongoDB is connected */}
+            {mongoConnected && onIngest && (
+              <Button
+                variant="contained"
+                startIcon={isIngesting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <StorageIcon />}
+                onClick={onIngest}
+                disabled={isIngesting || selectedCount === 0 || evalHasFailVerdicts}
+                title={evalHasFailVerdicts ? 'Fix FAIL DeepEval verdicts before ingesting' : undefined}
+                sx={{
+                  py: 1,
+                  px: 3,
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #7c3aed, #9333ea)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #6d28d9, #7e22ce)',
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(124,58,237,0.4)',
+                    color: 'white',
+                  },
+                }}
+              >
+                {isIngesting ? 'Ingesting...' : `💾 Ingest (${selectedCount})`}
+              </Button>
+            )}
+
+            {/* Jira upload button */}
+            {onUploadToJira && (
+              <Button
+                variant="contained"
+                startIcon={isUploadingToJira ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <LinkIcon />}
+                onClick={onUploadToJira}
+                disabled={!jiraUploadEnabled || isUploadingToJira}
+                sx={{
+                  py: 1,
+                  px: 3,
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(99,102,241,0.4)',
+                    color: 'white',
+                  },
+                }}
+              >
+                {isUploadingToJira ? 'Uploading...' : '🔗 Upload to Jira'}
+              </Button>
+            )}
           </Box>
         </Stack>
+
+        {/* Ingest status alert */}
+        {ingestStatus && (
+          <Alert
+            severity={ingestStatus.toLowerCase().includes('error') || ingestStatus.toLowerCase().includes('fail') ? 'error' : 'success'}
+            sx={{ mt: 2, borderRadius: '10px' }}
+          >
+            {ingestStatus}
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

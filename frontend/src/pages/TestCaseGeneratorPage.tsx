@@ -4,18 +4,22 @@ import AppHeader from '../components/AppHeader';
 import StoryInputForm from '../components/StoryInputForm';
 import GenerationStatus from '../components/GenerationStatus';
 import TestCaseSummary from '../components/TestCaseSummary';
-import TestCaseTable from '../components/TestCaseTable';
-import ReviewActionBar from '../components/ReviewActionBar';
+import { TestCaseTable } from '../components/TestCaseTable';
+import { ReviewActionBar } from '../components/ReviewActionBar';
 import UploadStories from '../components/UploadStories';
+import { ImpactAnalysisResults } from '../components/ImpactAnalysisResults';
+import JiraTab from '../components/JiraTab';
 import {
-  generateTestCases,
+  generateWithImpact,
   uploadUserStories,
   downloadTestCasesAsCSV,
   downloadTestCasesAsJSON,
   checkHealth,
+  ingestTestCases,
+  evaluateTestCases,
 } from '../services/testcaseService';
 import { downloadFile } from '../utils/helpers';
-import { TestCase, GenerationResponse } from '../types/index';
+import { TestCase, GenerationResponse, StoredTestCase, EvalResponse } from '../types/index';
 
 export const TestCaseGeneratorPage: React.FC = () => {
   // Tab state
@@ -38,6 +42,25 @@ export const TestCaseGeneratorPage: React.FC = () => {
   // Approval state
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
 
+  // RAG / impact analysis state
+  const [impactedTestCases, setImpactedTestCases] = useState<StoredTestCase[]>([]);
+  const [impactReasons, setImpactReasons] = useState<Record<string, string>>({});
+  const [hasImpactAnalysis, setHasImpactAnalysis] = useState(false);
+  const [mongoConnected, setMongoConnected] = useState(false);
+  const [selectedTestCases, setSelectedTestCases] = useState<TestCase[]>([]);
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [ingestStatus, setIngestStatus] = useState<string | null>(null);
+
+  // Current form title (for ingestion label)
+  const [currentStoryTitle, setCurrentStoryTitle] = useState('');
+
+  // Deep Eval state
+  const [evalResults, setEvalResults] = useState<EvalResponse | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [currentCriteria, setCurrentCriteria] = useState<string[]>([]);
+  const [currentDescription, setCurrentDescription] = useState('');
+
   // Check backend health on mount
   useEffect(() => {
     checkHealth().catch((err: Error) => {
@@ -46,7 +69,7 @@ export const TestCaseGeneratorPage: React.FC = () => {
     });
   }, []);
 
-  // Handle form submission — fixes: wraps args into object, uses draftTestCases (camelCase)
+  // Handle form submission — uses generateWithImpact for RAG-enabled flow
   const handleGenerateTestCases = async (
     formTitle: string,
     formDescription: string,
@@ -58,23 +81,47 @@ export const TestCaseGeneratorPage: React.FC = () => {
       setStatus('loading');
       setStatusMessage('Analyzing user story and generating test cases...');
       setApprovalStatus(null);
+      setIngestStatus(null);
+      setCurrentStoryTitle(formTitle);
+      setCurrentDescription(formDescription);
 
       const criteriaArray = formAcceptanceCriteria
         .split('\n')
         .map((line) => line.trim().replace(/^[\d+.)\-•*]\s*/, '').trim())
         .filter((line) => line.length > 0);
 
-      const response = await generateTestCases({
+      setCurrentCriteria(criteriaArray);
+      // Reset eval state on new generation
+      setEvalResults(null);
+      setEvalError(null);
+
+      const response = await generateWithImpact({
         title: formTitle,
         description: formDescription,
         acceptanceCriteria: criteriaArray,
       });
 
       if (response.status === 'success') {
-        setTestCases(response.draftTestCases || []);
-        setSummary(response.summary);
+        const newTCs = response.newTestCases || [];
+        setTestCases(newTCs);
+        // Normalize summary shape to match TestCaseSummary component
+        if (response.summary) {
+          setSummary({
+            totalTestCases: response.summary.totalNewTestCases ?? 0,
+            byType: response.summary.byType,
+            averageConfidence: response.summary.averageConfidence,
+          });
+        } else {
+          setSummary(null);
+        }
+        setImpactedTestCases(response.impactedTestCases || []);
+        setImpactReasons(response.impactReasons || {});
+        setMongoConnected(response.mongoConnected ?? false);
+        setHasImpactAnalysis(true);
         setStatus('success');
-        setStatusMessage(`✅ Successfully generated ${response.draftTestCases?.length || 0} test cases!`);
+        setStatusMessage(
+          `✅ Generated ${newTCs.length} test cases${response.mongoConnected ? ` · ${response.impactedTestCases?.length ?? 0} existing impacted` : ''}`
+        );
       } else {
         throw new Error(response.error || 'Failed to generate test cases');
       }
@@ -131,6 +178,16 @@ export const TestCaseGeneratorPage: React.FC = () => {
     setStatusMessage('');
     setError(null);
     setApprovalStatus(null);
+    setImpactedTestCases([]);
+    setImpactReasons({});
+    setHasImpactAnalysis(false);
+    setSelectedTestCases([]);
+    setIngestStatus(null);
+    setCurrentStoryTitle('');
+    setEvalResults(null);
+    setEvalError(null);
+    setCurrentCriteria([]);
+    setCurrentDescription('');
   };
 
   // Handle approve
@@ -177,6 +234,64 @@ export const TestCaseGeneratorPage: React.FC = () => {
     }
   };
 
+  // Handle ingest selected test cases into MongoDB
+  // DeepEval gate: exclude any test cases with a FAIL verdict from being ingested
+  const handleIngest = async () => {
+    if (selectedTestCases.length === 0) return;
+    try {
+      setIsIngesting(true);
+      setIngestStatus(null);
+
+      // Build set of FAIL-verdict test case IDs (if eval has been run)
+      const failIds = new Set(
+        evalResults?.evaluations
+          .filter(e => e.verdict === 'FAIL')
+          .map(e => e.testCaseId) ?? []
+      );
+
+      const eligibleTestCases = selectedTestCases.filter(tc => !failIds.has(tc.testCaseId));
+      const excludedCount = selectedTestCases.length - eligibleTestCases.length;
+
+      if (eligibleTestCases.length === 0) {
+        setIngestStatus(`❌ All selected test cases failed DeepEval — none ingested. Fix FAIL verdicts first.`);
+        return;
+      }
+
+      const result = await ingestTestCases(eligibleTestCases, currentStoryTitle, '');
+      if (result.status === 'success') {
+        const excludeNote = excludedCount > 0 ? ` (⚠️ ${excludedCount} FAIL-verdict TC${excludedCount > 1 ? 's' : ''} excluded)` : '';
+        setIngestStatus(`✅ Ingested ${result.ingested} new · updated ${result.updated} existing test cases.${excludeNote}`);
+      } else {
+        setIngestStatus(`❌ Ingestion failed: ${result.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setIngestStatus(`❌ Ingestion error: ${message}`);
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
+  // Handle Deep Eval — evaluate all generated test cases
+  const handleRunEval = async () => {
+    const tcsToEval = testCases.length > 0 ? testCases : [];
+    if (tcsToEval.length === 0) return;
+    try {
+      setIsEvaluating(true);
+      setEvalError(null);
+      const result = await evaluateTestCases(
+        { title: currentStoryTitle, description: currentDescription, acceptanceCriteria: currentCriteria },
+        tcsToEval
+      );
+      setEvalResults(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setEvalError(message);
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
   return (
     <Box sx={{ background: 'transparent', minHeight: '100vh', pb: 6, pt: 1 }}>
       <AppHeader />
@@ -209,6 +324,7 @@ export const TestCaseGeneratorPage: React.FC = () => {
           >
             <Tab label="✍️ Manual Input" />
             <Tab label="📂 Bulk Upload (CSV)" />
+            <Tab label="🔗 Jira Integration" />
           </Tabs>
 
           {activeTab === 0 && (
@@ -221,6 +337,9 @@ export const TestCaseGeneratorPage: React.FC = () => {
           )}
           {activeTab === 1 && (
             <UploadStories onUpload={handleUploadCSV} isLoading={isLoading} />
+          )}
+          {activeTab === 2 && (
+            <JiraTab mongoConnected={mongoConnected} />
           )}
         </Box>
 
@@ -244,8 +363,8 @@ export const TestCaseGeneratorPage: React.FC = () => {
           </Box>
         )}
 
-        {/* Test Cases Table */}
-        {testCases.length > 0 && (
+        {/* Test Cases: Impact analysis view (with tabs) or plain table */}
+        {hasImpactAnalysis ? (
           <Box
             sx={{
               background: 'rgba(255, 255, 255, 0.95)',
@@ -257,12 +376,42 @@ export const TestCaseGeneratorPage: React.FC = () => {
               border: '1px solid rgba(255, 255, 255, 0.2)',
             }}
           >
-            <TestCaseTable testCases={testCases} />
+            <ImpactAnalysisResults
+              newTestCases={testCases}
+              impactedTestCases={impactedTestCases}
+              impactReasons={impactReasons}
+              onSelectionChange={setSelectedTestCases}
+              evalResults={evalResults}
+              isEvaluating={isEvaluating}
+              evalError={evalError}
+              onRunEval={handleRunEval}
+            />
           </Box>
+        ) : (
+          testCases.length > 0 && (
+            <Box
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                p: 3,
+                mb: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+              }}
+            >
+              <TestCaseTable
+                testCases={testCases}
+                showCheckboxes={mongoConnected}
+                autoSelectAll={mongoConnected}
+                onSelectionChange={setSelectedTestCases}
+              />
+            </Box>
+          )
         )}
 
         {/* Review and Download Actions */}
-        {testCases.length > 0 && (
+        {(testCases.length > 0 || hasImpactAnalysis) && (
           <Box
             sx={{
               background: 'rgba(255, 255, 255, 0.95)',
@@ -282,6 +431,14 @@ export const TestCaseGeneratorPage: React.FC = () => {
               isDownloading={isDownloading}
               downloadError={downloadError}
               approvalStatus={approvalStatus}
+              selectedCount={selectedTestCases.length}
+              onIngest={handleIngest}
+              isIngesting={isIngesting}
+              ingestStatus={ingestStatus}
+              mongoConnected={mongoConnected}
+              evalHasFailVerdicts={
+                (evalResults?.evaluations ?? []).some(e => e.verdict === 'FAIL')
+              }
             />
           </Box>
         )}

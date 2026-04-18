@@ -1,0 +1,11 @@
+{
+  "name": "test-case-generator",
+  "version": "1.0.0",
+  "description": "Test Case Generation Agent - Root runner",
+  "scripts": {
+    "dev": "start cmd /k \"cd backend && npm run dev\" && start cmd /k \"cd frontend && npm run dev\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+  }
+}

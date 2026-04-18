@@ -1,13 +1,31 @@
 import { Router, Request, Response } from 'express';
 import TestCaseService from '../services/testCaseService';
+import MongoService from '../services/mongoService';
+import RAGService from '../services/ragService';
+import EvalService from '../services/evalService';
 import { UserStory } from '../types/index';
 
 const router = Router();
 
 let testCaseService: TestCaseService;
+let mongoService: MongoService;
+let ragService: RAGService;
+let evalService: EvalService;
 
 export function setTestCaseService(service: TestCaseService) {
   testCaseService = service;
+}
+
+export function setMongoService(service: MongoService) {
+  mongoService = service;
+}
+
+export function setRAGService(service: RAGService) {
+  ragService = service;
+}
+
+export function setEvalService(service: EvalService) {
+  evalService = service;
 }
 
 // Health check
@@ -201,5 +219,160 @@ function convertToCSV(testCases: any[]): string {
 
   return csv;
 }
+
+// ── GET /stored — return all ingested test cases ─────────────────────────────
+router.get('/stored', async (req: Request, res: Response) => {
+  try {
+    const connected = mongoService?.isConnected() || false;
+    if (!connected) {
+      return res.json({ status: 'ok', testCases: [], mongoConnected: false });
+    }
+    const testCases = await mongoService.getAllTestCases();
+    res.json({ status: 'ok', testCases, mongoConnected: true });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: String(error) });
+  }
+});
+
+// ── POST /ingest — save selected test cases to MongoDB ───────────────────────
+router.post('/ingest', async (req: Request, res: Response) => {
+  try {
+    const { testCases, defaultUserStoryTitle = '', defaultUserStoryDescription = '' } = req.body;
+
+    if (!Array.isArray(testCases) || testCases.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No test cases provided' });
+    }
+
+    if (!mongoService?.isConnected()) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'MongoDB not connected — ingestion unavailable',
+      });
+    }
+
+    const { ingested, updated } = await mongoService.ingestTestCases(
+      testCases,
+      defaultUserStoryTitle,
+      defaultUserStoryDescription
+    );
+
+    res.json({
+      status: 'success',
+      ingested,
+      updated,
+      message: `Ingested ${ingested} new, updated ${updated} existing test cases`,
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: String(error) });
+  }
+});
+
+// ── POST /generate-with-impact — generate + RAG impact analysis ───────────────
+router.post('/generate-with-impact', async (req: Request, res: Response) => {
+  try {
+    const { title, description, acceptanceCriteria } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing required fields: title, description',
+      });
+    }
+
+    const criteria = Array.isArray(acceptanceCriteria)
+      ? acceptanceCriteria
+      : [acceptanceCriteria].filter(Boolean);
+
+    const userStory: UserStory = { title, description, acceptanceCriteria: criteria };
+
+    // 1. Generate new test cases via existing service
+    const generationResult = await testCaseService.generateTestCases(userStory);
+    const newTestCases = generationResult.draftTestCases || [];
+
+    // 2. Impact analysis — only when MongoDB has existing data
+    let impactedTestCases: any[] = [];
+    let impactReasons: Record<string, string> = {};
+    const mongoConnected = mongoService?.isConnected() || false;
+
+    if (mongoConnected) {
+      const existingTestCases = await mongoService.getAllTestCases();
+      if (existingTestCases.length > 0 && ragService) {
+        const impact = await ragService.analyzeImpact(
+          { title, description, acceptanceCriteria: criteria },
+          existingTestCases
+        );
+        impactedTestCases = impact.impactedTestCases;
+        impactReasons = impact.impactReasons;
+      }
+    }
+
+    const byType: Record<string, number> = {};
+    let totalConfidence = 0;
+    newTestCases.forEach((tc: any) => {
+      byType[tc.testType] = (byType[tc.testType] || 0) + 1;
+      totalConfidence += tc.confidenceScore || 0;
+    });
+
+    res.json({
+      status: 'success',
+      newTestCases,
+      impactedTestCases,
+      impactReasons,
+      summary: {
+        totalNewTestCases: newTestCases.length,
+        totalImpacted: impactedTestCases.length,
+        byType,
+        averageConfidence: newTestCases.length > 0 ? totalConfidence / newTestCases.length : 0,
+      },
+      mongoConnected,
+    });
+  } catch (error) {
+    console.error('💥 ERROR in /generate-with-impact:', error);
+    res.status(500).json({ status: 'error', message: String(error) });
+  }
+});
+
+// ── POST /evaluate — LLM-as-judge deep eval for generated test cases ──────────
+router.post('/evaluate', async (req: Request, res: Response) => {
+  try {
+    const { title, description, acceptanceCriteria, testCases } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing required fields: title, description',
+      });
+    }
+
+    if (!Array.isArray(testCases) || testCases.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'testCases array is required and must not be empty',
+      });
+    }
+
+    if (!evalService) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Evaluation service not available',
+      });
+    }
+
+    const criteria = Array.isArray(acceptanceCriteria)
+      ? acceptanceCriteria
+      : [acceptanceCriteria].filter(Boolean);
+
+    const userStory: UserStory = { title, description, acceptanceCriteria: criteria };
+
+    console.log(`🧪 Starting deep eval for ${testCases.length} test cases...`);
+    const result = await evalService.evaluateTestCases(userStory, testCases);
+    console.log(`✓ Deep eval complete — ${result.summary.passed} PASS, ${result.summary.warned} WARN, ${result.summary.failed} FAIL`);
+
+    res.json(result);
+  } catch (error) {
+    console.error('💥 ERROR in /evaluate:', error);
+    res.status(500).json({ status: 'error', message: String(error) });
+  }
+});
 
 export default router;

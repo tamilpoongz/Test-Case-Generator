@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import testcaseRoutes, { setTestCaseService } from './routes/testcaseRoutes';
+import testcaseRoutes, { setTestCaseService, setMongoService, setRAGService, setEvalService } from './routes/testcaseRoutes';
+import jiraRoutes from './routes/jiraRoutes';
 import GroqService from './services/groqService';
 import TestCaseService from './services/testCaseService';
+import MongoService from './services/mongoService';
+import RAGService from './services/ragService';
+import EvalService from './services/evalService';
 
 dotenv.config();
 
@@ -23,8 +27,26 @@ const groqService = new GroqService(
 const testCaseService = new TestCaseService(groqService);
 setTestCaseService(testCaseService);
 
+// Initialize MongoDB + RAG services (non-blocking — graceful degradation if offline)
+const mongoService = new MongoService();
+mongoService.connect();
+
+const ragService = new RAGService(
+  process.env.GROQ_API_KEY || '',
+  process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+);
+setMongoService(mongoService);
+setRAGService(ragService);
+
+const evalService = new EvalService(
+  process.env.GROQ_API_KEY || '',
+  process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+);
+setEvalService(evalService);
+
 // Routes
 app.use('/api/testcases', testcaseRoutes);
+app.use('/api/jira', jiraRoutes);
 
 // Health route
 app.get('/health', (req, res) => {

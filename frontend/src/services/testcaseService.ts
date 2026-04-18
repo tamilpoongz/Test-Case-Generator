@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { GenerationResponse, TestCase } from '../types/index';
+import { GenerationResponse, TestCase, ImpactAnalysisResponse, IngestResponse, EvalResponse } from '../types/index';
 
 // Use relative URLs for Vite proxy to work correctly in dev mode
 const API_BASE_PATH = '/api';
@@ -166,9 +166,89 @@ export const downloadFile = (blob: Blob, filename: string): void => {
   window.URL.revokeObjectURL(url);
 };
 
+export const generateWithImpact = async (userStory: any): Promise<ImpactAnalysisResponse> => {
+  try {
+    const payload = {
+      title: (userStory?.title || '').trim(),
+      description: (userStory?.description || '').trim(),
+      acceptanceCriteria: Array.isArray(userStory?.acceptanceCriteria)
+        ? userStory.acceptanceCriteria.filter((ac: string) => (ac || '').trim().length > 0)
+        : [],
+    };
+
+    const response = await fetch(`${API_BASE_PATH}/testcases/generate-with-impact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    throw new Error(`Generate with impact failed: ${error.message}`);
+  }
+};
+
+export const ingestTestCases = async (
+  testCases: any[],
+  defaultUserStoryTitle: string,
+  defaultUserStoryDescription: string
+): Promise<IngestResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_PATH}/testcases/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testCases, defaultUserStoryTitle, defaultUserStoryDescription }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    throw new Error(`Ingest failed: ${error.message}`);
+  }
+};
+
+export const evaluateTestCases = async (
+  userStory: { title: string; description: string; acceptanceCriteria: string[] },
+  testCases: TestCase[]
+): Promise<EvalResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_PATH}/testcases/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: userStory.title,
+        description: userStory.description,
+        acceptanceCriteria: userStory.acceptanceCriteria,
+        testCases,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    throw new Error(`Evaluation failed: ${error.message}`);
+  }
+};
+
 const testcaseService = {
   checkHealth,
   generateTestCases,
+  generateWithImpact,
+  ingestTestCases,
+  evaluateTestCases,
   downloadTestCasesAsCSV,
   downloadTestCasesAsJSON,
   downloadFile
